@@ -16,7 +16,7 @@ pipeline  {
             steps {
                 echo 'Creating docker image ...'
                 dir('.'){
-                  sh "docker-compose -v"
+                  sh "docker-compose up"
                 }
             }
         }       
