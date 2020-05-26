@@ -22,7 +22,6 @@
     $user="dummy";
     $pass="dummy";
     include("connection_database.php");
-
     $stmt = $dbh->query("SELECT * FROM `tbl_user`");
     while ($row = $stmt->fetch()) {
         $img=$row['image'];

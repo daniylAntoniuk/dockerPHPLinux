@@ -17,6 +17,7 @@ function getGUID(){
         return $uuid;
     }
 }
+
 if($_SERVER["REQUEST_METHOD"]=="POST")
 {
     $email = $_POST["email"];
@@ -94,9 +95,12 @@ if($_SERVER["REQUEST_METHOD"]=="POST")
 
                 if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $path)) {
                     //echo "The file ". basename( $_FILES["fileToUpload"]["name"]). " has been uploaded.";
+                    //include_once("compressor.php");
                     $sql = "INSERT INTO `tbl_user` (`email`, `password`, `image`) VALUES (?, ?, ?);";
                     $stmt= $dbh->prepare($sql);
                     $stmt->execute([$email, $password,$image]);
+                    include_once("compressor.php");
+                    my_image_resize(100,100,$path,"fileToUpload");
                     echo '<script>window.location.href = "index.php";</script>';
                 } else {
                     //$error= "Sorry, there was an error uploading your file.";

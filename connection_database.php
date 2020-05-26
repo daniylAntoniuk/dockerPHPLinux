@@ -1,5 +1,5 @@
 <?php
-$host = 'mysql';
+$host = '13.69.138.80';
 $db = "dummy";
 
 $user = "dummy";
