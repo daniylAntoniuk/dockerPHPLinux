@@ -13,7 +13,7 @@
 <table class="table">
     <thead>
     <tr>
-        <th scope="col">????</th>
+        <th scope="col">Photo4ka</th>
         <th scope="col">Email</th>
     </tr>
     </thead>
