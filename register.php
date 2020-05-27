@@ -28,92 +28,57 @@ if($_SERVER["REQUEST_METHOD"]=="POST")
 
     if(!$uppercase || !$lowercase || !$number || strlen($password) < 8) {
         $error="Занадто слабкий пароль";
-    }else{
-        $error="";
-        $user="dbtestreg";
-        $pass="Uc06JyRe4~-Y";
+    }else {
+        $error = "";
+        $user = "dbtestreg";
+        $pass = "Uc06JyRe4~-Y";
         include("connection_database.php");
 
         $stmt = $dbh->query("SELECT * FROM `tbl_user`");
         while ($row = $stmt->fetch()) {
-            if($row['email']==$email){
-                $error="Данний юзер вже зареєстрований";
+            if ($row['email'] == $email) {
+                $error = "Данний юзер вже зареєстрований";
             }
             //echo $row['email']."<br />\n";
         }
-        if($error=="")
-        {
+        if ($error == "") {
 
 
             $target_dir = "uploads/";
+            $img = $_POST['output'];
 
-            $target_file = $target_dir . basename($_FILES["fileToUpload"]["name"]);
-            $uploadOk = 1;
-            $imageFileType = strtolower(pathinfo($target_file,PATHINFO_EXTENSION));
 
-// Check if image file is a actual image or fake image
-            if(isset($_POST["submit"])) {
-                $check = getimagesize($_FILES["fileToUpload"]["tmp_name"]);
-                if($check !== false) {
-                    //$error= "File is an image - " . $check["mime"] . ".";
-                    $uploadOk = 1;
-                } else {
-                    $error= "File is not an image.";
-                    $uploadOk = 0;
-                }
-            }
-
-// Check if file already exists
-            if (file_exists($target_file)) {
-                $error= "Sorry, file already exists.";
-                $uploadOk = 0;
-            }
-
-// Check file size
-            if ($_FILES["fileToUpload"]["size"] > 500000) {
-                $error= "Sorry, your file is too large.";
-                $uploadOk = 0;
-            }
-
-// Allow certain file formats
-            if($imageFileType != "jpg" && $imageFileType != "png" && $imageFileType != "jpeg"
-                && $imageFileType != "gif" ) {
-                $error= "Sorry, only JPG, JPEG, PNG & GIF files are allowed.";
-                $uploadOk = 0;
-            }
-            $image=getGUID().".jpg";
+            $image = getGUID() . ".jpg";
             //$path = dirname($_SERVER['PHP_SELF']);
             //$position = strrpos($path,'/') + 1;
             //$error=getcwd();
 
-            $path= $_SERVER['DOCUMENT_ROOT']."/uploads/".$image;
-            $error=$image;
-            if ($uploadOk == 0) {
-                //$error= "Sorry, your file was not uploaded.";
-// if everything is ok, try to upload file
-            } else {
-
-                if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $path)) {
-                    //echo "The file ". basename( $_FILES["fileToUpload"]["name"]). " has been uploaded.";
-                    //include_once("compressor.php");
-                    $sql = "INSERT INTO `tbl_user` (`email`, `password`, `image`) VALUES (?, ?, ?);";
-                    $stmt= $dbh->prepare($sql);
-                    $stmt->execute([$email, $password,$image]);
-                    include_once("compressor.php");
-                    my_image_resize(100,100,$path,"fileToUpload");
-                    echo '<script>window.location.href = "index.php";</script>';
-                } else {
-                    //$error= "Sorry, there was an error uploading your file.";
-                }
-            }
+            $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/" . $image;
 
 
+
+            list(, $img) = explode(';', $img);
+            list(, $img)      = explode(',', $img);
+            $img = base64_decode($img);
+            file_put_contents($path, $img);
+            $sql = "INSERT INTO `tbl_user` (`email`, `password`, `image`) VALUES (?, ?, ?);";
+            $stmt= $dbh->prepare($sql);
+            $stmt->execute([$email, $password,$image]);
+            include_once("compressor.php");
+            my_image_resize(100,100,$path);
+            echo '<script>window.location.href = "index.php";</script>';
         }
+        
+
+
+    }
+}
+
 
         //echo "<script>alert('POST JS".$email."'); </script>";
-    }
 
-}
+
+
 else{
     $email="";
     $password="";
@@ -127,7 +92,9 @@ else{
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="node_modules/font-awesome/css/font-awesome.min.css">
     <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.6/cropper.css" integrity="sha256-jKV9n9bkk/CTP8zbtEtnKaKf+ehRovOYeKoyfthwbC8=" crossorigin="anonymous" />
     <title>Document</title>
 </head>
 <body>
@@ -157,6 +124,7 @@ else{
                 </div>
 
             </div>
+            <input type="hidden" id="h" name="output"/>
             <img id="output" src="uploads/noimage.jpeg" class="offset-4" style="border-radius: 50%; height: 250px;width: 250px;"/>
             <script>
                 var loadFile = function(event) {
@@ -179,8 +147,67 @@ else{
 
 
 <script src="node_modules/jquery/dist/jquery.min.js" />
-<script src="node_modules/popper.js/dist/popper.js"></script>
+<script src="node_modules/popper.js/dist/popper.min.js"></script>
 <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+<?php include_once("services/cropper.php");?>
 
+
+<script src="node_modules/cropperjs/dist/cropper.min.js"></script>
+
+<script>
+    $(function() {
+
+        let dialogCropper = $("#cropperModal");
+        $("#fileToUpload").on("change", function() {
+            //console.log("----select file------", this.files);
+            //this.files;
+            if (this.files && this.files.length) {
+                let file = this.files[0];
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    //cropper.destroy();
+                    //$('#modalImg').attr('src', e.target.result);
+                    dialogCropper.modal('show');
+                    cropper.replace(e.target.result);
+
+                }
+                reader.readAsDataURL(file);
+
+            }
+        });
+
+        const image = document.getElementById('modalImg');
+        const cropper = new Cropper(image, {
+            aspectRatio: 1/1,
+            viewMode: 1,
+            autoCropArea: 0.5,
+            crop(event) {
+                // console.log(event.detail.x);
+                // console.log(event.detail.y);
+                // console.log(event.detail.width);
+                // console.log(event.detail.height);
+                // console.log(event.detail.rotate);
+                // console.log(event.detail.scaleX);
+                // console.log(event.detail.scaleY);
+            },
+        });
+
+        $("#rotateImg").on("click",function (e) {
+            cropper.rotate(90);
+        });
+
+        $("#croppImg").on("click", function (e) {
+            e.preventDefault();
+
+            var imgContent = cropper.getCroppedCanvas().toDataURL();
+
+
+            $("#h").val(imgContent);
+            $("#output").attr("src", imgContent);
+            dialogCropper.modal('hide');
+        });
+    });
+
+</script>
 </body>
 </html>
