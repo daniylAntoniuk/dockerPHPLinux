@@ -17,7 +17,7 @@ function getGUID(){
         return $uuid;
     }
 }
-
+$error = "";
 if($_SERVER["REQUEST_METHOD"]=="POST")
 {
     $email = $_POST["email"];
@@ -25,11 +25,10 @@ if($_SERVER["REQUEST_METHOD"]=="POST")
     $uppercase = preg_match('@[A-Z]@', $password);
     $lowercase = preg_match('@[a-z]@', $password);
     $number    = preg_match('@[0-9]@', $password);
-
+    $file = $_FILES['fileToUpload'];
     if(!$uppercase || !$lowercase || !$number || strlen($password) < 8) {
         $error="Занадто слабкий пароль";
     }else {
-        $error = "";
         $user = "dbtestreg";
         $pass = "Uc06JyRe4~-Y";
         include("connection_database.php");
@@ -44,29 +43,92 @@ if($_SERVER["REQUEST_METHOD"]=="POST")
         if ($error == "") {
 
 
+            $image = getGUID() . ".jpg";
+            $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/" . $image;
             $target_dir = "uploads/";
             $img = $_POST['output'];
+            if($img==""){
+                $target_file = $target_dir . basename($_FILES["fileToUpload"]["name"]);
+                $uploadOk = 1;
+                $imageFileType = strtolower(pathinfo($target_file,PATHINFO_EXTENSION));
+
+// Check if image file is a actual image or fake image
+                if(isset($_POST["submit"])) {
+                    $check = getimagesize($_FILES["fileToUpload"]["tmp_name"]);
+                    if($check !== false) {
+                        if($check[1]<=300) {
+                            $error="Фото замале !";
+                            $uploadOk = 0;
+                        }elseif ($check[0]<=300){
+                            $error="Фото замале !";
+                            $uploadOk = 0;
+                        }
+                        else{
+                            $uploadOk = 1;
+                        }
+                    } else {
+                        $error="File is not an image.";
+                        $uploadOk = 0;
+                    }
+                }
+
+// Check if file already exists
+                if (file_exists($target_file)) {
+                    $error="Sorry, file already exists.";
+                    $uploadOk = 0;
+                }
+
+                if ($_FILES["fileToUpload"]["size"] > 500000) {
+                    $error="Sorry, your file is too large.";
+                    $uploadOk = 0;
+                }
+
+                if($imageFileType != "jpg" && $imageFileType != "png" && $imageFileType != "jpeg"
+                    && $imageFileType != "gif" ) {
+                    $error="Sorry, only JPG, JPEG, PNG & GIF files are allowed.";
+                    $uploadOk = 0;
+                }
+                if ($uploadOk == 0) {
+                    //$error="Оберіть інше фото";
+                } else {
+
+                    if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $path)) {
+                        $error="";
+                    } else {
+                        $error="Eroor";
+                    }
+                }
+            }
+            else{
 
 
-            $image = getGUID() . ".jpg";
-            //$path = dirname($_SERVER['PHP_SELF']);
-            //$position = strrpos($path,'/') + 1;
-            //$error=getcwd();
 
-            $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/" . $image;
+                list(, $img) = explode(';', $img);
+                list(, $img)      = explode(',', $img);
 
 
+                $img = base64_decode($img);
+                $arr=getimagesizefromstring($img);
+                if($arr[0]>300&&$arr[1]>300)
+                {
+                file_put_contents($path, $img);
+                $error="";
+                }else{
+                    $error="Оберіть інше фото";
+                }
+            }
+            if($error=="")
+            {
 
-            list(, $img) = explode(';', $img);
-            list(, $img)      = explode(',', $img);
-            $img = base64_decode($img);
-            file_put_contents($path, $img);
+
+
             $sql = "INSERT INTO `tbl_user` (`email`, `password`, `image`) VALUES (?, ?, ?);";
             $stmt= $dbh->prepare($sql);
             $stmt->execute([$email, $password,$image]);
             include_once("compressor.php");
-            my_image_resize(100,100,$path);
+            my_image_resize(200,200,$path);
             echo '<script>window.location.href = "index.php";</script>';
+            }
         }
         
 
@@ -128,11 +190,15 @@ else{
             <img id="output" src="uploads/noimage.jpeg" class="offset-4" style="border-radius: 50%; height: 250px;width: 250px;"/>
             <script>
                 var loadFile = function(event) {
-                    var output = document.getElementById('output');
-                    output.src = URL.createObjectURL(event.target.files[0]);
-                    output.onload = function() {
-                        URL.revokeObjectURL(output.src) // free memory
-                    }
+
+                        //alert("t");
+                        var output = document.getElementById('output');
+                        output.src = URL.createObjectURL(event.target.files[0]);
+                        output.onload = function() {
+                            URL.revokeObjectURL(output.src) // free memory
+                        }
+
+
                 };
             </script>
             <div class="offset-3 form-group mt-2 form-check">
@@ -155,6 +221,7 @@ else{
 <script src="node_modules/cropperjs/dist/cropper.min.js"></script>
 
 <script>
+
     $(function() {
 
         let dialogCropper = $("#cropperModal");
@@ -177,18 +244,25 @@ else{
         });
 
         const image = document.getElementById('modalImg');
+        var lastValidCrop = null;
         const cropper = new Cropper(image, {
             aspectRatio: 1/1,
             viewMode: 1,
-            autoCropArea: 0.5,
-            crop(event) {
-                // console.log(event.detail.x);
-                // console.log(event.detail.y);
-                // console.log(event.detail.width);
-                // console.log(event.detail.height);
-                // console.log(event.detail.rotate);
-                // console.log(event.detail.scaleX);
-                // console.log(event.detail.scaleY);
+            autoCropArea: 1.5,
+            crop(e) {
+                var validCrop = true;
+                if (e.detail.width < 300) validCrop = false;
+                if (e.detail.height < 300) validCrop = false;
+
+                if (validCrop) {
+                    lastValidCrop = cropper.getData();
+                    $("#crop_photo_x").val(e.detail.x);
+                    $("#crop_photo_y").val(e.detail.y);
+                    $("#crop_photo_width").val(e.detail.width);
+                    $("#crop_photo_height").val(e.detail.height);
+                } else {
+                    cropper.setData(lastValidCrop);
+                }
             },
         });
 
@@ -206,6 +280,7 @@ else{
             $("#output").attr("src", imgContent);
             dialogCropper.modal('hide');
         });
+
     });
 
 </script>
